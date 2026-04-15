@@ -1,0 +1,9 @@
+datasets/**/*.csv
+datasets/**/*.json
+*.parquet
+.DS_Store
+__pycache__/
+*.pyc
+venv/
+.env
+*.bak
