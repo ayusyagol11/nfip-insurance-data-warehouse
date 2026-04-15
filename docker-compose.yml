@@ -1,0 +1,13 @@
+version: '3.8'
+services:
+  sqlserver:
+    image: mcr.microsoft.com/azure-sql-edge
+    container_name: nfip-sqlserver
+    environment:
+      - ACCEPT_EULA=Y
+      - MSSQL_SA_PASSWORD=NfipWarehouse2026!
+    ports:
+      - "1433:1433"
+    volumes:
+      - ./datasets:/data
+    restart: unless-stopped
