@@ -72,6 +72,10 @@ def load_claims(conn):
         start = time.time()
         df = pd.read_csv(csv_path, dtype=str)
 
+        # Convert everything to string for Bronze (all VARCHAR columns)
+        df = df.astype(str)
+        df = df.replace({'nan': None, 'None': None, 'NaT': None, '': None})
+
         df["batch_id"] = str(BATCH_ID)
         df["ingestion_timestamp"] = pd.Timestamp.now().isoformat()
         df["source_state"] = state
@@ -82,7 +86,7 @@ def load_claims(conn):
         col_names = ",".join(cols)
         sql = f"INSERT INTO bronze.nfip_claims_raw ({col_names}) VALUES ({placeholders})"
 
-        rows = df.values.tolist()
+        rows = df.where(df.notna(), None).values.tolist()
         batch_size = 1000
         for i in range(0, len(rows), batch_size):
             cursor.executemany(sql, rows[i:i + batch_size])
@@ -112,6 +116,10 @@ def load_policies(conn):
         start = time.time()
         df = pd.read_csv(csv_path, dtype=str)
 
+        # Convert everything to string for Bronze (all VARCHAR columns)
+        df = df.astype(str)
+        df = df.replace({'nan': None, 'None': None, 'NaT': None, '': None})
+
         df["batch_id"] = str(BATCH_ID)
         df["ingestion_timestamp"] = pd.Timestamp.now().isoformat()
         df["source_state"] = state
@@ -122,7 +130,7 @@ def load_policies(conn):
         col_names = ",".join(cols)
         sql = f"INSERT INTO bronze.nfip_policies_raw ({col_names}) VALUES ({placeholders})"
 
-        rows = df.values.tolist()
+        rows = df.where(df.notna(), None).values.tolist()
         batch_size = 1000
         for i in range(0, len(rows), batch_size):
             cursor.executemany(sql, rows[i:i + batch_size])
