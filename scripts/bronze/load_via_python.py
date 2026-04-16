@@ -8,6 +8,12 @@ CSV with pandas, and inserts into the Bronze tables with metadata columns.
 The loader dynamically creates Bronze tables based on actual CSV headers
 from the OpenFEMA API, so column names always match regardless of API changes.
 
+Features:
+    - Dynamic table creation from CSV headers
+    - Connection retry on TCP drops (08S01)
+    - Per-batch commit so progress survives crashes
+    - Resumable: skips states already loaded (set RELOAD_ALL=True to override)
+
 Usage:
     python scripts/bronze/load_via_python.py
 """
@@ -16,6 +22,16 @@ import os
 import time
 import pandas as pd
 import pyodbc
+
+# --- Configuration -----------------------------------------------------------
+
+# Set to True to force reload all states (drops and recreates tables)
+RELOAD_ALL = False
+
+BATCH_SIZE = 500
+BATCH_DELAY = 0.5       # seconds between batches
+MAX_RETRIES = 3
+RETRY_DELAY = 5         # seconds before reconnect attempt
 
 # Try ODBC Driver 18 first, fall back to 17
 ODBC_DRIVER = None
@@ -48,6 +64,8 @@ POLICIES_DIR = os.path.join(DATASETS_DIR, "policies")
 CLAIMS_API = "https://www.fema.gov/api/open/v2/FimaNfipClaims"
 POLICIES_API = "https://www.fema.gov/api/open/v2/FimaNfipPolicies"
 
+
+# --- Helpers -----------------------------------------------------------------
 
 def to_clean_rows(df):
     """Convert DataFrame to list of tuples with only str or None values."""
@@ -93,10 +111,67 @@ def get_connection():
     """Establish pyodbc connection to SQL Server."""
     print(f"Connecting to SQL Server (driver: {ODBC_DRIVER})...")
     conn = pyodbc.connect(CONNECTION_STRING)
-    conn.autocommit = True
+    conn.autocommit = False
     print("Connected.")
     return conn
 
+
+def reconnect():
+    """Re-establish connection after a drop."""
+    print("  Reconnecting to SQL Server...")
+    time.sleep(RETRY_DELAY)
+    conn = pyodbc.connect(CONNECTION_STRING)
+    conn.autocommit = False
+    print("  Reconnected.")
+    return conn
+
+
+def execute_batch_with_retry(conn, cursor, sql, batch, batch_num):
+    """Execute a batch with retry on connection drops. Returns (conn, cursor)."""
+    for attempt in range(1, MAX_RETRIES + 1):
+        try:
+            cursor.executemany(sql, batch)
+            conn.commit()
+            return conn, cursor
+        except pyodbc.OperationalError as e:
+            error_code = getattr(e, 'args', [('',)])[0] if e.args else ''
+            if '08S01' in str(error_code) or '08S01' in str(e):
+                print(f"  Connection dropped on batch {batch_num} "
+                      f"(attempt {attempt}/{MAX_RETRIES}). Retrying...")
+                try:
+                    conn.close()
+                except Exception:
+                    pass
+                conn = reconnect()
+                cursor = conn.cursor()
+                cursor.fast_executemany = True
+                if attempt == MAX_RETRIES:
+                    raise
+            else:
+                raise
+        except pyodbc.DataError as e:
+            print(f"  DataError in batch {batch_num}. Diagnosing...")
+            for idx, row in enumerate(batch):
+                try:
+                    cursor.execute(sql, row)
+                    conn.commit()
+                except pyodbc.DataError:
+                    print(f"  Problem row {batch_num * BATCH_SIZE + idx}: {row}")
+                    print(f"  Types: {[type(v).__name__ for v in row]}")
+                    break
+            raise
+    return conn, cursor
+
+
+def state_row_count(cursor, table_name, state):
+    """Check how many rows exist for a given state."""
+    cursor.execute(
+        f"SELECT COUNT(*) FROM {table_name} WHERE source_state = ?", state
+    )
+    return cursor.fetchone()[0]
+
+
+# --- Loaders -----------------------------------------------------------------
 
 def load_claims(conn):
     """Load all claims CSVs into bronze.nfip_claims_raw."""
@@ -120,9 +195,22 @@ def load_claims(conn):
     csv_columns = list(df_sample.columns)
     print(f"\n  Actual API claims columns: {csv_columns}")
 
-    create_bronze_table_from_csv(
-        cursor, 'bronze.nfip_claims_raw', csv_columns, CLAIMS_API
-    )
+    if RELOAD_ALL:
+        create_bronze_table_from_csv(
+            cursor, 'bronze.nfip_claims_raw', csv_columns, CLAIMS_API
+        )
+        conn.commit()
+    else:
+        # Check if table exists; if not, create it
+        cursor.execute(
+            "SELECT COUNT(*) FROM INFORMATION_SCHEMA.TABLES "
+            "WHERE TABLE_SCHEMA = 'bronze' AND TABLE_NAME = 'nfip_claims_raw'"
+        )
+        if cursor.fetchone()[0] == 0:
+            create_bronze_table_from_csv(
+                cursor, 'bronze.nfip_claims_raw', csv_columns, CLAIMS_API
+            )
+            conn.commit()
 
     # Build INSERT for CSV data columns only (metadata added separately)
     placeholders = ', '.join(['?' for _ in csv_columns])
@@ -136,6 +224,14 @@ def load_claims(conn):
             print(f"  {state}: CSV not found, skipping")
             continue
 
+        # Resume support: skip states already loaded
+        if not RELOAD_ALL:
+            existing = state_row_count(cursor, 'bronze.nfip_claims_raw', state)
+            if existing > 0:
+                print(f"  Skipping {state}: {existing:,} rows already loaded")
+                total += existing
+                continue
+
         start = time.time()
         df = pd.read_csv(csv_path, dtype=str)
         print(f"  {state} CSV columns: {list(df.columns)}")
@@ -145,27 +241,32 @@ def load_claims(conn):
         print(f"  {state} null profile: {null_counts[null_counts > 0].to_dict()}")
 
         rows = to_clean_rows(df)
-        batch_size = 1000
-        for i in range(0, len(rows), batch_size):
-            try:
-                cursor.executemany(sql, rows[i:i + batch_size])
-            except pyodbc.DataError as e:
-                print(f"  DataError in batch starting at row {i}. Diagnosing...")
-                for idx, row in enumerate(rows[i:i + batch_size]):
-                    try:
-                        cursor.execute(sql, row)
-                    except pyodbc.DataError:
-                        print(f"  Problem row {i + idx}: {row}")
-                        print(f"  Types: {[type(v).__name__ for v in row]}")
-                        break
-                raise
+        for i in range(0, len(rows), BATCH_SIZE):
+            batch = rows[i:i + BATCH_SIZE]
+            conn, cursor = execute_batch_with_retry(
+                conn, cursor, sql, batch, i // BATCH_SIZE
+            )
+            if BATCH_DELAY > 0:
+                time.sleep(BATCH_DELAY)
+
+        # Update source_state for rows just loaded
+        state_col = None
+        for candidate in ['state', 'propertyState']:
+            if candidate in csv_columns:
+                state_col = candidate
+                break
+        if state_col:
+            cursor.execute(
+                f"UPDATE bronze.nfip_claims_raw SET source_state = [{state_col}] "
+                "WHERE source_state IS NULL"
+            )
+            conn.commit()
 
         elapsed = time.time() - start
         print(f"  {state}: {len(df):,} claims loaded in {elapsed:.1f}s")
         total += len(df)
 
-    # Populate source_state metadata from the data
-    # Detect which column holds the state value
+    # Final source_state pass (catch any stragglers)
     state_col = None
     for candidate in ['state', 'propertyState']:
         if candidate in csv_columns:
@@ -176,6 +277,7 @@ def load_claims(conn):
             f"UPDATE bronze.nfip_claims_raw SET source_state = [{state_col}] "
             "WHERE source_state IS NULL"
         )
+        conn.commit()
         print(f"  source_state populated from [{state_col}] column")
     else:
         print(f"  WARNING: No state column found in {csv_columns}")
@@ -206,9 +308,22 @@ def load_policies(conn):
     csv_columns = list(df_sample.columns)
     print(f"\n  Actual API policies columns: {csv_columns}")
 
-    create_bronze_table_from_csv(
-        cursor, 'bronze.nfip_policies_raw', csv_columns, POLICIES_API
-    )
+    if RELOAD_ALL:
+        create_bronze_table_from_csv(
+            cursor, 'bronze.nfip_policies_raw', csv_columns, POLICIES_API
+        )
+        conn.commit()
+    else:
+        # Check if table exists; if not, create it
+        cursor.execute(
+            "SELECT COUNT(*) FROM INFORMATION_SCHEMA.TABLES "
+            "WHERE TABLE_SCHEMA = 'bronze' AND TABLE_NAME = 'nfip_policies_raw'"
+        )
+        if cursor.fetchone()[0] == 0:
+            create_bronze_table_from_csv(
+                cursor, 'bronze.nfip_policies_raw', csv_columns, POLICIES_API
+            )
+            conn.commit()
 
     # Build INSERT for CSV data columns only (metadata added separately)
     placeholders = ', '.join(['?' for _ in csv_columns])
@@ -222,6 +337,14 @@ def load_policies(conn):
             print(f"  {state}: CSV not found, skipping")
             continue
 
+        # Resume support: skip states already loaded
+        if not RELOAD_ALL:
+            existing = state_row_count(cursor, 'bronze.nfip_policies_raw', state)
+            if existing > 0:
+                print(f"  Skipping {state}: {existing:,} rows already loaded")
+                total += existing
+                continue
+
         start = time.time()
         df = pd.read_csv(csv_path, dtype=str)
         print(f"  {state} CSV columns: {list(df.columns)}")
@@ -231,27 +354,32 @@ def load_policies(conn):
         print(f"  {state} null profile: {null_counts[null_counts > 0].to_dict()}")
 
         rows = to_clean_rows(df)
-        batch_size = 1000
-        for i in range(0, len(rows), batch_size):
-            try:
-                cursor.executemany(sql, rows[i:i + batch_size])
-            except pyodbc.DataError as e:
-                print(f"  DataError in batch starting at row {i}. Diagnosing...")
-                for idx, row in enumerate(rows[i:i + batch_size]):
-                    try:
-                        cursor.execute(sql, row)
-                    except pyodbc.DataError:
-                        print(f"  Problem row {i + idx}: {row}")
-                        print(f"  Types: {[type(v).__name__ for v in row]}")
-                        break
-                raise
+        for i in range(0, len(rows), BATCH_SIZE):
+            batch = rows[i:i + BATCH_SIZE]
+            conn, cursor = execute_batch_with_retry(
+                conn, cursor, sql, batch, i // BATCH_SIZE
+            )
+            if BATCH_DELAY > 0:
+                time.sleep(BATCH_DELAY)
+
+        # Update source_state for rows just loaded
+        state_col = None
+        for candidate in ['propertyState', 'state']:
+            if candidate in csv_columns:
+                state_col = candidate
+                break
+        if state_col:
+            cursor.execute(
+                f"UPDATE bronze.nfip_policies_raw SET source_state = [{state_col}] "
+                "WHERE source_state IS NULL"
+            )
+            conn.commit()
 
         elapsed = time.time() - start
         print(f"  {state}: {len(df):,} policies loaded in {elapsed:.1f}s")
         total += len(df)
 
-    # Populate source_state metadata from the data
-    # Detect which column holds the state value
+    # Final source_state pass (catch any stragglers)
     state_col = None
     for candidate in ['propertyState', 'state']:
         if candidate in csv_columns:
@@ -262,6 +390,7 @@ def load_policies(conn):
             f"UPDATE bronze.nfip_policies_raw SET source_state = [{state_col}] "
             "WHERE source_state IS NULL"
         )
+        conn.commit()
         print(f"  source_state populated from [{state_col}] column")
     else:
         print(f"  WARNING: No state column found in {csv_columns}")
@@ -270,9 +399,13 @@ def load_policies(conn):
     return total
 
 
+# --- Main --------------------------------------------------------------------
+
 def main():
     print("=" * 60)
     print("Bronze Layer Python Loader")
+    print(f"  RELOAD_ALL = {RELOAD_ALL}")
+    print(f"  BATCH_SIZE = {BATCH_SIZE}")
     print("=" * 60)
 
     conn = get_connection()
