@@ -46,6 +46,26 @@ CLAIMS_API = "https://www.fema.gov/api/open/v2/FimaNfipClaims"
 POLICIES_API = "https://www.fema.gov/api/open/v2/FimaNfipPolicies"
 
 
+def to_clean_rows(df):
+    """Convert DataFrame to list of tuples with only str or None values."""
+    clean_rows = []
+    for _, row in df.iterrows():
+        clean_row = []
+        for val in row:
+            if val is None or (isinstance(val, float) and pd.isna(val)):
+                clean_row.append(None)
+            elif pd.isna(val):
+                clean_row.append(None)
+            else:
+                s = str(val)
+                if s in ('nan', 'None', 'NaT', '', 'null', 'NULL'):
+                    clean_row.append(None)
+                else:
+                    clean_row.append(s)
+        clean_rows.append(tuple(clean_row))
+    return clean_rows
+
+
 def get_connection():
     """Establish pyodbc connection to SQL Server."""
     print(f"Connecting to SQL Server (driver: {ODBC_DRIVER})...")
@@ -72,9 +92,9 @@ def load_claims(conn):
         start = time.time()
         df = pd.read_csv(csv_path, dtype=str)
 
-        # Convert everything to string for Bronze (all VARCHAR columns)
-        df = df.astype(str)
-        df = df.replace({'nan': None, 'None': None, 'NaT': None, '': None})
+        # Log null profile before adding metadata
+        null_counts = df.isna().sum()
+        print(f"  {state} null profile: {null_counts[null_counts > 0].to_dict()}")
 
         df["batch_id"] = str(BATCH_ID)
         df["ingestion_timestamp"] = pd.Timestamp.now().isoformat()
@@ -86,10 +106,21 @@ def load_claims(conn):
         col_names = ",".join(cols)
         sql = f"INSERT INTO bronze.nfip_claims_raw ({col_names}) VALUES ({placeholders})"
 
-        rows = df.where(df.notna(), None).values.tolist()
+        rows = to_clean_rows(df)
         batch_size = 1000
         for i in range(0, len(rows), batch_size):
-            cursor.executemany(sql, rows[i:i + batch_size])
+            try:
+                cursor.executemany(sql, rows[i:i + batch_size])
+            except pyodbc.DataError as e:
+                print(f"  DataError in batch starting at row {i}. Diagnosing...")
+                for idx, row in enumerate(rows[i:i + batch_size]):
+                    try:
+                        cursor.execute(sql, row)
+                    except pyodbc.DataError:
+                        print(f"  Problem row {i + idx}: {row}")
+                        print(f"  Types: {[type(v).__name__ for v in row]}")
+                        break
+                raise
 
         elapsed = time.time() - start
         print(f"  {state}: {len(df):,} claims loaded in {elapsed:.1f}s")
@@ -116,9 +147,9 @@ def load_policies(conn):
         start = time.time()
         df = pd.read_csv(csv_path, dtype=str)
 
-        # Convert everything to string for Bronze (all VARCHAR columns)
-        df = df.astype(str)
-        df = df.replace({'nan': None, 'None': None, 'NaT': None, '': None})
+        # Log null profile before adding metadata
+        null_counts = df.isna().sum()
+        print(f"  {state} null profile: {null_counts[null_counts > 0].to_dict()}")
 
         df["batch_id"] = str(BATCH_ID)
         df["ingestion_timestamp"] = pd.Timestamp.now().isoformat()
@@ -130,10 +161,21 @@ def load_policies(conn):
         col_names = ",".join(cols)
         sql = f"INSERT INTO bronze.nfip_policies_raw ({col_names}) VALUES ({placeholders})"
 
-        rows = df.where(df.notna(), None).values.tolist()
+        rows = to_clean_rows(df)
         batch_size = 1000
         for i in range(0, len(rows), batch_size):
-            cursor.executemany(sql, rows[i:i + batch_size])
+            try:
+                cursor.executemany(sql, rows[i:i + batch_size])
+            except pyodbc.DataError as e:
+                print(f"  DataError in batch starting at row {i}. Diagnosing...")
+                for idx, row in enumerate(rows[i:i + batch_size]):
+                    try:
+                        cursor.execute(sql, row)
+                    except pyodbc.DataError:
+                        print(f"  Problem row {i + idx}: {row}")
+                        print(f"  Types: {[type(v).__name__ for v in row]}")
+                        break
+                raise
 
         elapsed = time.time() - start
         print(f"  {state}: {len(df):,} policies loaded in {elapsed:.1f}s")
