@@ -2,8 +2,13 @@ USE NfipInsuranceWarehouse;
 GO
 
 -- ================================================================
--- 03_load_claims.sql
--- Loads claims CSV files into bronze.nfip_claims_raw via BULK INSERT
+-- Script:    03_load_claims.sql
+-- Layer:     Bronze
+-- Purpose:   Load claims CSV files into bronze.nfip_claims_raw
+--            via BULK INSERT from Docker container paths
+-- Author:    Aayush Yagol
+-- Execute:   ./scripts/run_sql.sh scripts/bronze/03_load_claims.sql
+-- ================================================================
 --
 -- EXECUTION OPTIONS:
 --

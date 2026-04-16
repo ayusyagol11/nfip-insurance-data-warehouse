@@ -2,10 +2,12 @@ USE NfipInsuranceWarehouse;
 GO
 
 -- ================================================================
--- 02_create_bronze_tables.sql
--- Creates Bronze layer raw staging tables
--- All source columns are VARCHAR — no type casting at Bronze
--- Column names match the actual CSV headers from the OpenFEMA API
+-- Script:    02_create_bronze_tables.sql
+-- Layer:     Bronze
+-- Purpose:   Create raw staging tables for claims and policies
+--            (all source columns VARCHAR, no type casting)
+-- Author:    Aayush Yagol
+-- Execute:   ./scripts/run_sql.sh scripts/bronze/02_create_bronze_tables.sql
 -- ================================================================
 
 -- ----------------------------------------------------------------

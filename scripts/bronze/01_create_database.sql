@@ -1,7 +1,10 @@
 -- ================================================================
--- 01_create_database.sql
--- Creates the NfipInsuranceWarehouse database and schemas
--- Target: Azure SQL Edge via Docker
+-- Script:    01_create_database.sql
+-- Layer:     Bronze
+-- Purpose:   Create the NfipInsuranceWarehouse database and
+--            bronze, silver, gold schemas
+-- Author:    Aayush Yagol
+-- Execute:   ./scripts/run_sql.sh scripts/bronze/01_create_database.sql
 -- ================================================================
 
 -- Create database if it doesn't exist

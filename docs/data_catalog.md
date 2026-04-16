@@ -1,11 +1,3 @@
--- ================================================================
--- Document:  data_catalog.md
--- Layer:     Gold
--- Purpose:   Data catalog for all Gold layer dimension and fact
---            tables in the NFIP Insurance Data Warehouse
--- Author:    Aayush Yagol
--- ================================================================
-
 # Gold Layer Data Catalog
 
 ## Dimension Tables

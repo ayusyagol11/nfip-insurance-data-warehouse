@@ -2,11 +2,12 @@ USE NfipInsuranceWarehouse;
 GO
 
 -- ================================================================
--- 04_load_policies.sql
--- Loads policies CSV files into bronze.nfip_policies_raw via BULK INSERT
---
--- CSV files are mounted inside the container at /data/
--- via docker-compose volume: ./datasets:/data
+-- Script:    04_load_policies.sql
+-- Layer:     Bronze
+-- Purpose:   Load policies CSV files into bronze.nfip_policies_raw
+--            via BULK INSERT from Docker container paths
+-- Author:    Aayush Yagol
+-- Execute:   ./scripts/run_sql.sh scripts/bronze/04_load_policies.sql
 -- ================================================================
 
 -- Truncate before reload (idempotent)
