@@ -1,3 +1,7 @@
+-- NOTE: BULK INSERT is not supported on Azure SQL Edge.
+-- Use the Python loader instead: python scripts/bronze/load_via_python.py
+-- This script is retained for SQL Server Express/Developer Edition environments.
+
 USE NfipInsuranceWarehouse;
 GO
 

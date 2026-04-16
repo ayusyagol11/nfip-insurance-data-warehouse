@@ -1,9 +1,9 @@
 """
-Fallback Bronze loader using Python + pyodbc.
+Bronze layer loader using Python + pyodbc.
 
-Use this if BULK INSERT fails due to CSV format issues in Azure SQL Edge.
-Connects to SQL Server, reads each state CSV with pandas, and inserts
-into the Bronze tables with metadata columns.
+BULK INSERT is not supported on Azure SQL Edge, so this is the primary
+loader for the Bronze layer. Connects to SQL Server, reads each state
+CSV with pandas, and inserts into the Bronze tables with metadata columns.
 
 Usage:
     python scripts/bronze/load_via_python.py
@@ -14,8 +14,20 @@ import time
 import pandas as pd
 import pyodbc
 
+# Try ODBC Driver 18 first, fall back to 17
+ODBC_DRIVER = None
+for driver in ["ODBC Driver 18 for SQL Server", "ODBC Driver 17 for SQL Server"]:
+    if driver in pyodbc.drivers():
+        ODBC_DRIVER = driver
+        break
+
+if ODBC_DRIVER is None:
+    raise RuntimeError(
+        "No suitable ODBC driver found. Install ODBC Driver 17 or 18 for SQL Server."
+    )
+
 CONNECTION_STRING = (
-    "Driver={ODBC Driver 18 for SQL Server};"
+    f"Driver={{{ODBC_DRIVER}}};"
     "Server=localhost,1433;"
     "Database=NfipInsuranceWarehouse;"
     "UID=sa;"
@@ -36,7 +48,7 @@ POLICIES_API = "https://www.fema.gov/api/open/v2/FimaNfipPolicies"
 
 def get_connection():
     """Establish pyodbc connection to SQL Server."""
-    print("Connecting to SQL Server...")
+    print(f"Connecting to SQL Server (driver: {ODBC_DRIVER})...")
     conn = pyodbc.connect(CONNECTION_STRING)
     conn.autocommit = True
     print("Connected.")
@@ -46,6 +58,7 @@ def get_connection():
 def load_claims(conn):
     """Load all claims CSVs into bronze.nfip_claims_raw."""
     cursor = conn.cursor()
+    cursor.fast_executemany = True
     cursor.execute("TRUNCATE TABLE bronze.nfip_claims_raw")
     print("\nTruncated bronze.nfip_claims_raw")
 
@@ -85,6 +98,7 @@ def load_claims(conn):
 def load_policies(conn):
     """Load all policies CSVs into bronze.nfip_policies_raw."""
     cursor = conn.cursor()
+    cursor.fast_executemany = True
     cursor.execute("TRUNCATE TABLE bronze.nfip_policies_raw")
     print("\nTruncated bronze.nfip_policies_raw")
 
@@ -123,7 +137,7 @@ def load_policies(conn):
 
 def main():
     print("=" * 60)
-    print("Bronze Layer Python Loader (fallback)")
+    print("Bronze Layer Python Loader")
     print("=" * 60)
 
     conn = get_connection()

@@ -23,8 +23,8 @@ echo ""
 echo "--- Bronze Layer ---"
 "$RUN_SQL" "$SCRIPT_DIR/bronze/01_create_database.sql"
 "$RUN_SQL" "$SCRIPT_DIR/bronze/02_create_bronze_tables.sql"
-"$RUN_SQL" "$SCRIPT_DIR/bronze/03_load_claims.sql"
-"$RUN_SQL" "$SCRIPT_DIR/bronze/04_load_policies.sql"
+echo "Loading Bronze data via Python (BULK INSERT not supported on Azure SQL Edge)..."
+python3 "$SCRIPT_DIR/bronze/load_via_python.py"
 echo ""
 
 # Silver layer

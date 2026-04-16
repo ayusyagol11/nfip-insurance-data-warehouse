@@ -11,8 +11,8 @@
 USE NfipInsuranceWarehouse;
 GO
 
-TRUNCATE TABLE gold.dim_date;
-PRINT 'Truncated gold.dim_date';
+DELETE FROM gold.dim_date;
+PRINT 'Cleared gold.dim_date';
 
 DECLARE @start_date DATE = '1978-01-01';
 DECLARE @end_date   DATE = '2026-12-31';

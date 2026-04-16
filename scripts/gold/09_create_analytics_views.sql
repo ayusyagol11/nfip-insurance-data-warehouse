@@ -53,6 +53,7 @@ JOIN gold.dim_location l
 GO
 
 PRINT 'View gold.vw_loss_ratio_by_state created.';
+GO
 
 -- ================================================================
 -- View 2: Claims Frequency and Severity by Flood Zone and Year
@@ -97,6 +98,7 @@ FULL OUTER JOIN exposure_agg e
 GO
 
 PRINT 'View gold.vw_claims_frequency_severity created.';
+GO
 
 -- ================================================================
 -- View 3: Large Loss Concentration by State
@@ -138,6 +140,7 @@ GROUP BY l.state_name;
 GO
 
 PRINT 'View gold.vw_large_loss_concentration created.';
+GO
 
 -- ================================================================
 -- View 4: Severity by Flood Zone Category
@@ -166,6 +169,7 @@ GROUP BY dfz.zone_category, dfz.zone_description,
 GO
 
 PRINT 'View gold.vw_severity_by_flood_zone created.';
+GO
 
 -- ================================================================
 -- View 5: Premium Adequacy by Occupancy and Construction
@@ -220,6 +224,7 @@ FULL OUTER JOIN policies_agg p
 GO
 
 PRINT 'View gold.vw_premium_adequacy created.';
+GO
 
 -- ================================================================
 -- View 6: Claims Development (Simplified)
@@ -242,6 +247,7 @@ GROUP BY fc.year_of_loss;
 GO
 
 PRINT 'View gold.vw_claims_development created.';
+GO
 
 -- ================================================================
 -- View 7: Portfolio Summary (One Row per Year)
@@ -298,6 +304,7 @@ LEFT JOIN claims_yearly c ON y.year = c.year;
 GO
 
 PRINT 'View gold.vw_portfolio_summary created.';
+GO
 
 -- ================================================================
 -- Verification: test each view
