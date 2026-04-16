@@ -6,6 +6,11 @@
 
 set -e
 
+if ! command -v sqlcmd &> /dev/null; then
+  echo "ERROR: sqlcmd not found. Install it with: brew tap microsoft/mssql-release https://github.com/microsoft/homebrew-mssql-release && brew install sqlcmd"
+  exit 1
+fi
+
 SCRIPT_DIR="$(cd "$(dirname "$0")" && pwd)"
 RUN_SQL="$SCRIPT_DIR/run_sql.sh"
 

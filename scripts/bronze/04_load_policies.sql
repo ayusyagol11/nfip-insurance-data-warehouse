@@ -9,6 +9,24 @@ GO
 -- Author:    Aayush Yagol
 -- Execute:   ./scripts/run_sql.sh scripts/bronze/04_load_policies.sql
 -- ================================================================
+--
+-- EXECUTION OPTIONS:
+--
+-- Option A: Via Azure Data Studio
+--   1. docker-compose up -d (if not already running)
+--   2. Open Azure Data Studio, connect to localhost,1433
+--   3. Run this script
+--
+-- Option B: Via command line (requires local sqlcmd)
+--   brew install sqlcmd (if not installed)
+--   ./scripts/run_sql.sh scripts/bronze/04_load_policies.sql
+--
+-- Option C: Python fallback (if BULK INSERT fails)
+--   python scripts/bronze/load_via_python.py
+--
+-- CSV files are mounted inside the container at /data/
+-- via docker-compose volume: ./datasets:/data
+-- ================================================================
 
 -- Truncate before reload (idempotent)
 TRUNCATE TABLE bronze.nfip_policies_raw;

@@ -90,6 +90,19 @@ Seven views in the Gold layer, each answering a specific underwriting or actuari
 
 ## How to Run
 
+### Prerequisites
+
+- Python 3.x
+- Docker Desktop for Mac
+- Azure Data Studio (recommended) or sqlcmd via Homebrew
+
+### Install sqlcmd (for command-line execution)
+
+```bash
+brew tap microsoft/mssql-release https://github.com/microsoft/homebrew-mssql-release
+brew install sqlcmd
+```
+
 ### 1. Clone and set up Python
 
 ```bash

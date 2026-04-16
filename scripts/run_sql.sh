@@ -4,6 +4,7 @@ if [ -z "$1" ]; then
   echo "Usage: ./scripts/run_sql.sh <path-to-sql-file>"
   exit 1
 fi
-docker exec -i nfip-sqlserver /opt/mssql-tools/bin/sqlcmd \
-  -S localhost -U sa -P 'NfipWarehouse2026!' \
-  -i /dev/stdin < "$1"
+echo "Executing: $1"
+sqlcmd -S localhost,1433 -U sa -P 'NfipWarehouse2026!' -i "$1" -C
+echo ""
+echo "Done: $1"
