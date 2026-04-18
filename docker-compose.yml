@@ -1,7 +1,6 @@
-version: '3.8'
 services:
   sqlserver:
-    image: mcr.microsoft.com/azure-sql-edge
+    image: mcr.microsoft.com/azure-sql-edge:latest
     container_name: nfip-sqlserver
     environment:
       - ACCEPT_EULA=Y
@@ -10,4 +9,8 @@ services:
       - "1433:1433"
     volumes:
       - ./datasets:/data
+      - sqlserver-data:/var/opt/mssql
     restart: unless-stopped
+
+volumes:
+  sqlserver-data:
