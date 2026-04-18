@@ -62,7 +62,7 @@ SELECT
     LTRIM(RTRIM(b.primaryResidenceIndicator))                           AS primaryResidenceIndicator,
     LTRIM(RTRIM(b.crsClassCode))                                        AS crsClassificationCode,
     LTRIM(RTRIM(b.ratedFloodZone))                                      AS ratedFloodZone,
-    LTRIM(RTRIM(b.originalConstructionDate))                            AS yearBuilt,
+    LEFT(LTRIM(RTRIM(b.originalConstructionDate)), 4)                   AS yearBuilt,
     LTRIM(RTRIM(b.elevatedBuildingIndicator))                           AS elevatedBuildingIndicator,
     LTRIM(RTRIM(b.basementEnclosureCrawlspaceType))                     AS basementEnclosureCrawlspaceType,
 

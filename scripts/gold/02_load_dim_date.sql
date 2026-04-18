@@ -33,7 +33,7 @@ BEGIN
         is_weekend
     )
     VALUES (
-        CAST(FORMAT(@current, 'yyyyMMdd') AS INT),
+        CAST(CONVERT(VARCHAR(8), @current, 112) AS INT),
         @current,
         YEAR(@current),
         DATEPART(QUARTER, @current),

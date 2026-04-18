@@ -37,7 +37,7 @@ CREATE TABLE silver.nfip_claims_cleaned (
     causeOfDamage                   VARCHAR(100),
     ratedFloodZone                  VARCHAR(20),
     primaryResidence                VARCHAR(10),
-    yearBuilt                       VARCHAR(10),
+    yearBuilt                       VARCHAR(30),
     numberOfFloors                  VARCHAR(10),
     elevatedBuildingIndicator       VARCHAR(10),
     basementEnclosureCrawlspaceType VARCHAR(10),
@@ -80,7 +80,7 @@ CREATE TABLE silver.nfip_policies_cleaned (
     primaryResidenceIndicator       VARCHAR(10),
     crsClassificationCode           VARCHAR(10),
     ratedFloodZone                  VARCHAR(20),
-    yearBuilt                       VARCHAR(10),
+    yearBuilt                       VARCHAR(30),
     elevatedBuildingIndicator       VARCHAR(10),
     basementEnclosureCrawlspaceType VARCHAR(10),
 

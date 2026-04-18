@@ -152,8 +152,6 @@ SELECT
     dfz.zone_description,
     COUNT(*)                                                        AS claim_count,
     AVG(fc.amount_paid_total)                                       AS avg_severity,
-    PERCENTILE_CONT(0.5) WITHIN GROUP (ORDER BY fc.amount_paid_total)
-        OVER (PARTITION BY dfz.zone_category)                       AS median_severity,
     AVG(fc.amount_paid_building)                                    AS avg_building_paid,
     AVG(fc.amount_paid_contents)                                    AS avg_contents_paid,
     SUM(fc.amount_paid_building)
@@ -163,9 +161,7 @@ SELECT
 FROM gold.fact_claims fc
 JOIN gold.dim_flood_zone dfz ON fc.flood_zone_key = dfz.flood_zone_key
 WHERE fc.amount_paid_total > 0
-GROUP BY dfz.zone_category, dfz.zone_description,
-         PERCENTILE_CONT(0.5) WITHIN GROUP (ORDER BY fc.amount_paid_total)
-             OVER (PARTITION BY dfz.zone_category);
+GROUP BY dfz.zone_category, dfz.zone_description;
 GO
 
 PRINT 'View gold.vw_severity_by_flood_zone created.';
