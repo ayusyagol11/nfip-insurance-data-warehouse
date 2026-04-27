@@ -6,7 +6,7 @@ Insurance data warehouse built on FEMA National Flood Insurance Program (NFIP) c
 
 Insurers manage policies and claims through separate operational systems. Policy administration records what was sold, to whom, and at what price. Claims systems record what happened, how much was paid, and why. In practice, these datasets live in different databases with different schemas, different update cadences, and different owners. The gap between them is where most insurance analytics problems start -- you cannot calculate a loss ratio, assess premium adequacy, or measure claims frequency without joining the two.
 
-This project builds a warehouse that brings NFIP flood insurance claims and policies into a single analytical model. The NFIP dataset was chosen for its scale (2.7 million records across 5 states), public availability (no API key required), and real-world relevance to property and casualty insurance. The data covers claims dating back to 1978 and policies from 2009 onward, providing decades of loss history against a meaningful book of business.
+This project builds a warehouse that brings NFIP flood insurance claims and policies into a single analytical model. The NFIP dataset was chosen for its scale (2.7 million records across 5 states — 1.7M claims and 1M policies), public availability (no API key required), and real-world relevance to property and casualty insurance. The data covers claims dating back to 1978 and policies from 2009 onward, providing decades of loss history against a meaningful book of business.
 
 The scope is deliberately constrained to five high-exposure states -- Florida, Louisiana, Texas, New Jersey, and New York -- which together account for the majority of NFIP claims volume. This mirrors how an insurer would approach portfolio segmentation: start with the concentrations that drive the most risk. The architecture and analytics patterns here are directly transferable to Australian general insurance contexts, including the 2022 flood events in Queensland and New South Wales, and the ARPC cyclone reinsurance pool.
 
@@ -33,7 +33,8 @@ The warehouse follows a **Medallion Architecture** (Bronze, Silver, Gold), runni
 
 <!-- See docs/data_architecture_diagram.png for the full diagram -->
 
-**Bronze** -- Raw staging layer. All source columns are loaded as `VARCHAR(255)` with no transformation. BULK INSERT from CSV files mounted into the Docker container. Metadata columns (`batch_id`, `ingestion_timestamp`, `source_state`) are appended for lineage tracking.
+**Bronze -- Raw staging layer. All source columns are loaded as `VARCHAR(255)` with no transformation. Data is loaded via a Python pyodbc loader (load_via_python.py) that dynamically creates Bronze tables based on actual API column headers -- this proved essential when OpenFEMA field names differed from documentation. BULK INSERT scripts are retained for SQL Server Express/Developer Edition environments but do not run on Azure SQL Edge. Metadata columns (`batch_id`, `ingestion_timestamp`, `source_state`, 
+`source_api_endpoint`) are appended for lineage tracking.
 
 **Silver** -- Cleaned and enriched layer. Type casting via `TRY_CAST`, `COALESCE` for null handling, deduplication via `ROW_NUMBER()`, and derived columns including `amountPaidTotal`, `zone_category`, `is_special_flood_hazard`, and `exposure` (policy term as a fraction of a year, capped 0--1).
 
@@ -52,7 +53,7 @@ The warehouse follows a **Medallion Architecture** (Bronze, Silver, Gold), runni
 ### Dimension Tables
 | Table | Description |
 |-------|-------------|
-| `dim_date` | Calendar dates 1978--2026 with fiscal year (Oct start) |
+| `dim_date` | Calendar dates 1978--2030 with fiscal year (Oct start) |
 | `dim_location` | State + county FIPS with FEMA region |
 | `dim_flood_zone` | Zone code mapped to category (A/V/X/D) with SFHA flag |
 | `dim_building_type` | Construction class, floors, year-built band, elevated flag, basement type |
@@ -75,6 +76,27 @@ Seven views in the Gold layer, each answering a specific underwriting or actuari
 **vw_claims_development** -- How do losses develop over time? Simplified accident-year view showing total paid, claim count, and average severity by year of loss. (Note: a true development triangle requires incremental payment dates, which the NFIP dataset does not provide.)
 
 **vw_portfolio_summary** -- What does the book look like year over year? One row per year with total policies, exposure, premium, claims paid, loss ratio, average severity, and YoY growth.
+
+## Pipeline Results
+
+These numbers reflect an actual end-to-end pipeline run against the 
+OpenFEMA API data:
+
+| Metric | Value |
+| --- | --- |
+| Bronze claims loaded | 1,703,977 |
+| Bronze policies loaded | 1,000,000 |
+| Silver claims (after dedup + NULL filter) | 1,328,816 |
+| Silver policies | 823,465 |
+| Gold fact_claims | 1,329,004 |
+| Gold fact_policies | 823,465 |
+| dim_date rows | 19,358 (1978--2030) |
+| dim_location entries | 469 |
+| dim_flood_zone codes | 68 (normalised to 5 categories) |
+| dim_building_type combinations | 787 |
+| P95 large loss threshold | $185,607 |
+| Largest accident year | 2005 (Katrina) — 131,431 claims, $10.1B paid |
+| Highest avg severity year | 2017 (Harvey) — $90,735 per claim |
 
 ## Tech Stack
 
@@ -135,11 +157,15 @@ docker-compose up -d
 Execute scripts in order via the helper, or open them in Azure Data Studio connected to `localhost,1433`:
 
 ```bash
-# Bronze layer
+# Bronze layer — schema setup
 ./scripts/run_sql.sh scripts/bronze/01_create_database.sql
 ./scripts/run_sql.sh scripts/bronze/02_create_bronze_tables.sql
-./scripts/run_sql.sh scripts/bronze/03_load_claims.sql
-./scripts/run_sql.sh scripts/bronze/04_load_policies.sql
+
+# Bronze layer — data loading (Python loader required for Azure SQL Edge) python scripts/bronze/load_via_python.py
+
+# Note: 03_load_claims.sql and 04_load_policies.sql use BULK INSERT which
+# is not supported on Azure SQL Edge. Use load_via_python.py instead.
+# Those scripts are retained for SQL Server Express/Developer Edition.
 
 # Silver layer
 ./scripts/run_sql.sh scripts/silver/01_create_silver_tables.sql
@@ -164,6 +190,19 @@ Execute scripts in order via the helper, or open them in Azure Data Studio conne
 ./scripts/run_sql.sh tests/test_referential_integrity.sql
 ./scripts/run_sql.sh tests/test_business_rules.sql
 ```
+
+### 5. Run the full SQL pipeline in one command
+
+Once Bronze is loaded via Python, run the entire Silver → Gold → Test 
+pipeline with the master script:
+
+```shell
+./scripts/run_all_sql.sh
+```
+
+This executes all 21 SQL scripts in order with error handling — Silver 
+cleaning, Gold dimensions, Gold facts, analytics views, and the full 
+test suite. Individual scripts can still be run via run_sql.sh if needed. 
 
 If BULK INSERT fails due to CSV format issues, use the Python fallback:
 ```bash
@@ -224,16 +263,9 @@ nfip-insurance-data-warehouse/
 └── README.md
 ```
 
-## Related Projects
-
-- [Predictive Claims Liability Model](https://github.com/ayusyagol11/claims-liability-predictor) -- Machine learning model for outstanding claims reserve estimation
-- [Macroeconomic Resilience in General Insurance](https://github.com/ayusyagol11) -- Research into economic cycle impacts on insurance portfolios
-
 ## Author
 
-**Aayush Yagol** -- Insurance Data Analyst | Claims Advisor, Suncorp Group
-
-*I build predictive models for insurance and risk -- from the inside.*
+**Aayush Yagol** -- *I build predictive models for insurance and risk -- from the inside.*
 
 - Portfolio: [aayushyagol.com](https://aayushyagol.com)
 - LinkedIn: [linkedin.com/in/aayush-yagol-046874145](https://linkedin.com/in/aayush-yagol-046874145)
