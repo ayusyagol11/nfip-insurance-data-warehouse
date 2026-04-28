@@ -65,7 +65,7 @@ reproduction instructions.
 
 ## Architecture
 
-![Data Architecture — OpenFEMA API to Gold Star Schema](docs/images/architecture_diagram.png)
+![Data Architecture — OpenFEMA API to Gold Star Schema](Images/Architecture-Design.png)
 *End-to-end pipeline from REST API source to analytics-ready dimensional model.*
 
 The warehouse follows a **Medallion Architecture** (Bronze → Silver → Gold),
@@ -95,14 +95,14 @@ views that answer specific insurance business questions.
 
 ## ETL Pipeline
 
-![ETL Pipeline — Bronze, Silver, Gold Transformation Steps](docs/images/etl_flow_diagram.png)
+![ETL Pipeline — Bronze, Silver, Gold Transformation Steps](Images/etl_flow_diagram.png)
 *Three-layer transformation pipeline: Bronze ingestion → Silver cleansing → Gold dimensional model.*
 
 ---
 
 ## Star Schema
 
-![Gold Layer Dimensional Model — 2 Fact Tables, 5 Dimensions](docs/images/star_schema_erd.png)
+![Gold Layer Dimensional Model — 2 Fact Tables, 5 Dimensions](Images/star_schema_erd.png)
 *Star schema with fact_claims and fact_policies joined to five conformed dimensions.*
 
 ### Fact Tables
@@ -160,7 +160,7 @@ average severity, and YoY growth.
 ## Analytics Screenshots
 
 ### Large Loss Concentration
-![Large Loss Concentration](docs/images/screenshot_large_loss.png)
+![Large Loss Concentration](Images/screenshot_large_loss.png)
 *P95 threshold $185,607 — Florida 41.8% of total paid from catastrophic claims.
 Texas 31.3%, Louisiana 23.3%. Tail-driven concentration characteristic of
 flood insurance with direct implications for catastrophe reinsurance pricing.*
@@ -168,7 +168,7 @@ flood insurance with direct implications for catastrophe reinsurance pricing.*
 ---
 
 ### Severity by Flood Zone
-![Severity by Flood Zone](docs/images/screenshot_severity_zone.png)
+![Severity by Flood Zone](Images/screenshot_severity_zone.png)
 *Zone V (coastal) averages $50,119 per claim with 88.5% of losses in building
 damage — consistent with storm surge. Zone A: $52,836. Zone X (moderate risk):
 $43,017 — a 19% reduction from high-risk zones, validating the SFHA
@@ -177,7 +177,7 @@ classification as a pricing signal.*
 ---
 
 ### Portfolio Summary
-![Portfolio Summary](docs/images/screenshot_portfolio_summary.png)
+![Portfolio Summary](Images/screenshot_portfolio_summary.png)
 *Year-over-year portfolio trends 2009–2025. Katrina 2005: $10.1B total paid.
 Harvey 2017: $90,735 avg severity — highest on record. YoY growth metrics
 calculated via LAG() window function.*
@@ -185,7 +185,7 @@ calculated via LAG() window function.*
 ---
 
 ### Claims Development by Accident Year
-![Claims Development by Accident Year](docs/images/screenshot_claims_development.png)
+![Claims Development by Accident Year](Images/screenshot_claims_development.png)
 *49 rows spanning 1978–2026. Katrina 2005: 131,431 claims, $10.1B paid.
 Harvey 2017: 97,064 claims, $8.8B paid, $90,735 avg severity. Rising severity
 trend reflects increased property values and more severe flood events.*
@@ -193,7 +193,7 @@ trend reflects increased property values and more severe flood events.*
 ---
 
 ### Claims Frequency vs Severity
-![Claims Frequency vs Severity](docs/images/screenshot_frequency_severity.png)
+![Claims Frequency vs Severity](Images/screenshot_frequency_severity.png)
 *Decomposes portfolio loss into frequency (claims per unit of exposure) and
 severity (avg paid per claim) by flood zone and year. 240 rows. Zone A drives
 highest frequency; Zone V shows highest severity per claim.*
@@ -201,7 +201,7 @@ highest frequency; Zone V shows highest severity per claim.*
 ---
 
 ### Premium Adequacy
-![Premium Adequacy](docs/images/screenshot_premium_adequacy.png)
+![Premium Adequacy](Images/screenshot_premium_adequacy.png)
 *Compares pure premium against average premium charged by occupancy type and
 construction class. Segments flagged as "No Policy Data" reflect occupancy
 codes present in claims but absent from the capped policy sample — documented
@@ -210,7 +210,7 @@ in data_quality_notes.md.*
 ---
 
 ### Loss Ratio by State
-![Loss Ratio by State](docs/images/screenshot_loss_ratio.png)
+![Loss Ratio by State](Images/screenshot_loss_ratio.png)
 *Claims paid divided by premium collected by state and year. 12,978 rows.
 Loss ratio inflation in some state-year combinations reflects the 200k
 per-state policy API cap — a documented data constraint.*
