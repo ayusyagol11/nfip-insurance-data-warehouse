@@ -157,63 +157,61 @@ average severity, and YoY growth.
 
 ---
 
-## Analytics Screenshots
+## Analytics
 
-### Large Loss Concentration
-![Large Loss Concentration](Images/screenshot_large_loss.png)
-*P95 threshold $185,607 — Florida 41.8% of total paid from catastrophic claims.
-Texas 31.3%, Louisiana 23.3%. Tail-driven concentration characteristic of
-flood insurance with direct implications for catastrophe reinsurance pricing.*
+### Loss Ratio by State and Year
 
----
+![Loss Ratio by State and Year](Images/charts/chart_loss_ratio_heatmap.png)
 
-### Severity by Flood Zone
-![Severity by Flood Zone](Images/screenshot_severity_zone.png)
-*Zone V (coastal) averages $50,119 per claim with 88.5% of losses in building
-damage — consistent with storm surge. Zone A: $52,836. Zone X (moderate risk):
-$43,017 — a 19% reduction from high-risk zones, validating the SFHA
-classification as a pricing signal.*
-
----
-
-### Portfolio Summary
-![Portfolio Summary](Images/screenshot_portfolio_summary.png)
-*Year-over-year portfolio trends 2009–2025. Katrina 2005: $10.1B total paid.
-Harvey 2017: $90,735 avg severity — highest on record. YoY growth metrics
-calculated via LAG() window function.*
+Heatmap of loss ratio (claims paid ÷ premium) by state and year. Red cells indicate years where claims exceeded premiums collected. Katrina (2005), Sandy (2012 — NJ/NY), and Harvey (2017 — TX) are clearly visible as loss spikes. Some state-year combinations show inflated ratios due to the 200K per-state policy API cap — a known constraint documented in `docs/data_quality_notes.md`.
 
 ---
 
 ### Claims Development by Accident Year
-![Claims Development by Accident Year](Images/screenshot_claims_development.png)
-*49 rows spanning 1978–2026. Katrina 2005: 131,431 claims, $10.1B paid.
-Harvey 2017: 97,064 claims, $8.8B paid, $90,735 avg severity. Rising severity
-trend reflects increased property values and more severe flood events.*
+
+![Claims Development by Accident Year](Images/charts/chart_claims_development.png)
+
+Bar chart of total claims paid (left axis, $B) and average severity per claim (right axis, $K) across 47 accident years from 1978 to 2024. Katrina 2005 produced 131,431 claims and $10.1B in total paid. Harvey 2017 produced the highest average severity on record at $90,735 per claim. The rising severity trend reflects increasing property values and more severe flood events over time.
 
 ---
 
-### Claims Frequency vs Severity
-![Claims Frequency vs Severity](Images/screenshot_frequency_severity.png)
-*Decomposes portfolio loss into frequency (claims per unit of exposure) and
-severity (avg paid per claim) by flood zone and year. 240 rows. Zone A drives
-highest frequency; Zone V shows highest severity per claim.*
+### Large Loss Concentration by State
+
+![Large Loss Concentration by State](Images/charts/chart_large_loss_concentration.png)
+
+Share of total claims paid that comes from catastrophic losses — claims above the P95 threshold of $185,607. Florida accounts for 41.8% of all catastrophic loss dollars, Texas 31.3%, Louisiana 23.3%. This tail-driven concentration pattern is characteristic of flood insurance and directly influences catastrophe reinsurance structure and pricing.
 
 ---
 
-### Premium Adequacy
-![Premium Adequacy](Images/screenshot_premium_adequacy.png)
-*Compares pure premium against average premium charged by occupancy type and
-construction class. Segments flagged as "No Policy Data" reflect occupancy
-codes present in claims but absent from the capped policy sample — documented
-in data_quality_notes.md.*
+### Severity by Flood Zone
+
+![Severity by Flood Zone](Images/charts/chart_severity_by_zone.png)
+
+Average claim severity split by building and contents damage, across the four NFIP flood zone categories. Zone V (coastal, storm surge) shows the highest building damage share at 88.5% of losses. Zone A (inland fluvial) averages $52,836. Zone X (moderate/minimal risk) averages $43,017 — a 19% reduction from high-risk zones, validating the SFHA classification as a meaningful pricing signal.
 
 ---
 
-### Loss Ratio by State
-![Loss Ratio by State](Images/screenshot_loss_ratio.png)
-*Claims paid divided by premium collected by state and year. 12,978 rows.
-Loss ratio inflation in some state-year combinations reflects the 200k
-per-state policy API cap — a documented data constraint.*
+### Portfolio Summary (2009–2024)
+
+![Portfolio Summary](Images/charts/chart_portfolio_summary.png)
+
+Year-over-year total claims paid (bars, left axis) against loss ratio (line, right axis) for the policy period 2009–2024. The dashed line marks loss ratio = 1.0, the breakeven point. Loss ratios above 1.0 indicate years where NFIP paid out more than it collected in premium — the program's structural reliance on Treasury borrowing is visible in the catastrophe years.
+
+---
+
+### Claims Frequency vs. Severity by Flood Zone
+
+![Claims Frequency vs Severity](Images/charts/chart_frequency_severity.png)
+
+Scatter plot decomposing portfolio loss by flood zone into frequency (claims per unit of earned exposure, x-axis) and average severity ($ per claim, y-axis). Bubble size is proportional to total claim volume. Zone A drives the highest frequency; Zone V (coastal) shows the highest severity per claim — a segmentation that validates the SFHA zone classification as a risk pricing signal.
+
+---
+
+### Premium Adequacy by Occupancy Type
+
+![Premium Adequacy](Images/charts/chart_premium_adequacy.png)
+
+Grouped bar chart comparing pure premium (total losses ÷ earned exposure, red) against the average premium charged (green) by occupancy type. Where the red bar exceeds green, premiums are insufficient to cover expected losses. Segments with no green bar indicate occupancy codes present in claims but absent from the policy sample — a data constraint documented in `docs/data_quality_notes.md`.
 
 ---
 
