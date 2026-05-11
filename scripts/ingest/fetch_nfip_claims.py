@@ -10,13 +10,25 @@ import time
 import requests
 import pandas as pd
 
+# OpenFEMA REST endpoint for NFIP claims — no API key required
 BASE_URL = "https://www.fema.gov/api/open/v2/FimaNfipClaims"
+
+# The five highest-exposure states for NFIP flood risk
 TARGET_STATES = ["FL", "LA", "TX", "NJ", "NY"]
+
+# OpenFEMA caps responses at 10,000 rows per request — we page through in chunks
 PAGE_SIZE = 10000
+
+# If a request fails, try up to 3 times before giving up on that page
 MAX_RETRIES = 3
+
+# Drop the connection if the API doesn't respond within 30 seconds
 REQUEST_TIMEOUT = 30
+
+# Wait 1 second between pages to avoid hammering the API
 RATE_LIMIT_DELAY = 1
 
+# Only request the columns we actually use — keeps downloads faster and files smaller
 SELECT_COLUMNS = [
     "dateOfLoss", "state", "countyCode", "floodZoneCurrent",
     "amountPaidOnBuildingClaim", "amountPaidOnContentsClaim",
@@ -27,13 +39,14 @@ SELECT_COLUMNS = [
     "elevatedBuildingIndicator", "basementEnclosureCrawlspaceType",
 ]
 
+# CSVs land in datasets/claims/ relative to the project root
 OUTPUT_DIR = os.path.join(os.path.dirname(__file__), "..", "..", "datasets", "claims")
 
 
 def fetch_state_claims(state: str) -> pd.DataFrame:
     """Fetch all claims for a given state with pagination and retry logic."""
     all_records = []
-    skip = 0
+    skip = 0       # how many rows to skip — advances by PAGE_SIZE each loop
     page = 1
     state_start = time.time()
 
@@ -42,6 +55,8 @@ def fetch_state_claims(state: str) -> pd.DataFrame:
     print(f"{'='*60}")
 
     while True:
+        # OData query params: $filter narrows to one state, $select limits columns,
+        # $top + $skip implement pagination (like LIMIT/OFFSET in SQL)
         params = {
             "$filter": f"state eq '{state}'",
             "$select": ",".join(SELECT_COLUMNS),
@@ -51,10 +66,12 @@ def fetch_state_claims(state: str) -> pd.DataFrame:
 
         records = request_with_retry(params, page, state)
 
+        # None means all retries failed — log it and move on to the next state
         if records is None:
             print(f"  [ERROR] Failed to fetch page {page} for {state} after {MAX_RETRIES} retries. Stopping state.")
             break
 
+        # Empty response means we've read past the last record — we're done
         if len(records) == 0:
             print(f"  Page {page}: 0 records — done with {state}.")
             break
@@ -63,12 +80,13 @@ def fetch_state_claims(state: str) -> pd.DataFrame:
         elapsed = time.time() - state_start
         print(f"  Page {page}: {len(records):,} records | Cumulative: {len(all_records):,} | Elapsed: {elapsed:.1f}s")
 
+        # A partial page means this was the last one — no need to request another
         if len(records) < PAGE_SIZE:
             break
 
         skip += PAGE_SIZE
         page += 1
-        time.sleep(RATE_LIMIT_DELAY)
+        time.sleep(RATE_LIMIT_DELAY)  # be polite to the API
 
     elapsed = time.time() - state_start
     print(f"  {state} complete: {len(all_records):,} total records in {elapsed:.1f}s")
@@ -85,6 +103,7 @@ def request_with_retry(params: dict, page: int, state: str) -> list | None:
             if resp.status_code != 200:
                 print(f"  [WARN] Page {page} for {state}: HTTP {resp.status_code} (attempt {attempt}/{MAX_RETRIES})")
                 if attempt < MAX_RETRIES:
+                    # Exponential backoff: wait 2s, then 4s, then 8s between retries
                     backoff = 2 ** attempt
                     print(f"         Retrying in {backoff}s...")
                     time.sleep(backoff)
@@ -92,6 +111,7 @@ def request_with_retry(params: dict, page: int, state: str) -> list | None:
                 return None
 
             data = resp.json()
+            # The API wraps results in a key matching the endpoint name
             return data.get("FimaNfipClaims", [])
 
         except requests.exceptions.Timeout:
@@ -104,6 +124,7 @@ def request_with_retry(params: dict, page: int, state: str) -> list | None:
             print(f"         Retrying in {backoff}s...")
             time.sleep(backoff)
 
+    # All retries exhausted — caller will skip this page
     return None
 
 
@@ -121,6 +142,7 @@ def main():
         summary[state] = len(df)
 
         if not df.empty:
+            # One CSV per state, e.g. FL_claims.csv
             output_path = os.path.join(OUTPUT_DIR, f"{state}_claims.csv")
             df.to_csv(output_path, index=False)
             print(f"  Saved to {output_path}")

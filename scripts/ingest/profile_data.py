@@ -9,11 +9,13 @@ import os
 import glob
 import pandas as pd
 
+# Paths relative to the project root
 DATASETS_DIR = os.path.join(os.path.dirname(__file__), "..", "..", "datasets")
 CLAIMS_DIR = os.path.join(DATASETS_DIR, "claims")
 POLICIES_DIR = os.path.join(DATASETS_DIR, "policies")
 OUTPUT_PATH = os.path.join(os.path.dirname(__file__), "..", "..", "docs", "data_profile_report.md")
 
+# Columns that hold coded values — we show their top 15 most common values
 CATEGORICAL_COLUMNS = {
     "claims": ["floodZoneCurrent", "occupancyType", "state", "causeOfDamage", "ratedFloodZone",
                "primaryResidenceIndicator", "elevatedBuildingIndicator", "basementEnclosureCrawlspaceType"],
@@ -22,11 +24,13 @@ CATEGORICAL_COLUMNS = {
                  "elevatedBuildingIndicator", "basementEnclosureCrawlspaceType"],
 }
 
+# Date columns get a min/max range rather than value counts
 DATE_COLUMNS = {
     "claims": ["dateOfLoss"],
     "policies": ["policyEffectiveDate", "policyTerminationDate"],
 }
 
+# Claims and policies use different column names for the state field
 STATE_COLUMN = {
     "claims": "state",
     "policies": "propertyState",
@@ -35,16 +39,19 @@ STATE_COLUMN = {
 
 def load_csvs(directory: str) -> pd.DataFrame:
     """Load and concatenate all CSVs from a directory."""
+    # glob finds all matching files; sorted ensures consistent ordering
     csv_files = sorted(glob.glob(os.path.join(directory, "*.csv")))
     if not csv_files:
         return pd.DataFrame()
 
     dfs = []
     for f in csv_files:
+        # low_memory=False avoids dtype inference warnings on large files
         df = pd.read_csv(f, low_memory=False)
         dfs.append(df)
         print(f"  Loaded {os.path.basename(f)}: {len(df):,} rows")
 
+    # Stack all state files into one DataFrame with a fresh index
     return pd.concat(dfs, ignore_index=True)
 
 
@@ -58,6 +65,7 @@ def profile_dataset(df: pd.DataFrame, name: str) -> list[str]:
     lines.append(f"**Total rows:** {len(df):,}")
     lines.append("")
 
+    # Row counts per state — quick sanity check that all five states loaded
     if state_col and state_col in df.columns:
         lines.append("### Row Count per State")
         lines.append("")
@@ -67,6 +75,7 @@ def profile_dataset(df: pd.DataFrame, name: str) -> list[str]:
             lines.append(f"| {state} | {count:,} |")
         lines.append("")
 
+    # Column dtypes — helps spot columns that loaded as object instead of numeric
     lines.append("### Column Types")
     lines.append("")
     lines.append("| Column | Dtype |")
@@ -75,6 +84,7 @@ def profile_dataset(df: pd.DataFrame, name: str) -> list[str]:
         lines.append(f"| {col} | {df[col].dtype} |")
     lines.append("")
 
+    # Null analysis — high null rates flag incomplete API fields
     lines.append("### Null Analysis")
     lines.append("")
     lines.append("| Column | Null Count | Null % |")
@@ -85,6 +95,7 @@ def profile_dataset(df: pd.DataFrame, name: str) -> list[str]:
         lines.append(f"| {col} | {null_count:,} | {null_pct:.1f}% |")
     lines.append("")
 
+    # Basic stats for numeric columns — min/max/mean/median
     numeric_cols = df.select_dtypes(include="number").columns.tolist()
     if numeric_cols:
         lines.append("### Numeric Column Statistics")
@@ -102,6 +113,7 @@ def profile_dataset(df: pd.DataFrame, name: str) -> list[str]:
                 )
         lines.append("")
 
+    # Top 15 values for coded/categorical columns — surfaces unexpected codes
     cat_cols = CATEGORICAL_COLUMNS.get(name, [])
     present_cat_cols = [c for c in cat_cols if c in df.columns]
     if present_cat_cols:
@@ -116,6 +128,7 @@ def profile_dataset(df: pd.DataFrame, name: str) -> list[str]:
                 lines.append(f"| {val} | {count:,} |")
             lines.append("")
 
+    # Date ranges — confirms data spans the expected historical period
     date_cols = DATE_COLUMNS.get(name, [])
     present_date_cols = [c for c in date_cols if c in df.columns]
     if present_date_cols:
@@ -124,6 +137,7 @@ def profile_dataset(df: pd.DataFrame, name: str) -> list[str]:
         lines.append("| Column | Min | Max |")
         lines.append("|--------|-----|-----|")
         for col in present_date_cols:
+            # errors="coerce" turns unparseable values into NaT rather than crashing
             parsed = pd.to_datetime(df[col], errors="coerce").dropna()
             if len(parsed) > 0:
                 lines.append(f"| {col} | {parsed.min().date()} | {parsed.max().date()} |")
