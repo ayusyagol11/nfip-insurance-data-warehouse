@@ -1,6 +1,6 @@
 # NFIP Insurance Data Warehouse
 
-Insurance data warehouse built on FEMA National Flood Insurance Program (NFIP)
+Insurance data warehouse built on FEMA(Federal Emergency Management Agency, a U.S. government agency within the Department of Homeland Security founded that coordinates responses to major disasters) National Flood Insurance Program (NFIP)
 claims and policy data, ingested via REST API. Medallion Architecture
 (Bronze, Silver, Gold) with a star schema dimensional model and insurance
 KPI analytics views.
