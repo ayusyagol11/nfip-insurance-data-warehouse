@@ -1,6 +1,6 @@
 # NFIP Insurance Data Warehouse
 
-Insurance data warehouse built on FEMA(Federal Emergency Management Agency, a U.S. government agency within the Department of Homeland Security founded that coordinates responses to major disasters) National Flood Insurance Program (NFIP)
+Insurance data warehouse built on FEMA National Flood Insurance Program (NFIP)
 claims and policy data, ingested via REST API. Medallion Architecture
 (Bronze, Silver, Gold) with a star schema dimensional model and insurance
 KPI analytics views.
@@ -159,6 +159,8 @@ average severity, and YoY growth.
 
 ## Analytics
 
+Charts generated from Gold layer analytics views using Matplotlib and Seaborn, queried directly from the warehouse via pyodbc.
+
 ### Loss Ratio by State and Year
 
 ![Loss Ratio by State and Year](Images/charts/chart_loss_ratio_heatmap.png)
@@ -243,6 +245,7 @@ OpenFEMA API data:
 | Component | Technology |
 | --- | --- |
 | Data ingestion | Python 3, `requests`, `pandas`, `pyodbc` |
+| Data visualisation | Matplotlib, Seaborn |
 | Database | Azure SQL Edge (Docker container) |
 | SQL dialect | T-SQL |
 | Architecture | Medallion (Bronze / Silver / Gold) |
@@ -331,18 +334,9 @@ nfip-insurance-data-warehouse/
 │   ├── claims/                           # FL/LA/TX/NJ/NY_claims.csv (gitignored)
 │   ├── policies/                         # FL/LA/TX/NJ/NY_policies.csv (gitignored)
 │   └── README.md                         # Data acquisition instructions
+├── notebooks/
+│   └── nfip_analytics.ipynb              # Chart generation from Gold layer analytics views
 ├── docs/
-│   ├── images/                           # Diagrams and analytics screenshots
-│   │   ├── architecture_diagram.png
-│   │   ├── star_schema_erd.png
-│   │   ├── etl_flow_diagram.png
-│   │   ├── screenshot_loss_ratio.png
-│   │   ├── screenshot_large_loss.png
-│   │   ├── screenshot_portfolio_summary.png
-│   │   ├── screenshot_severity_zone.png
-│   │   ├── screenshot_frequency_severity.png
-│   │   ├── screenshot_premium_adequacy.png
-│   │   └── screenshot_claims_development.png
 │   ├── data_catalog.md                   # Gold layer table documentation
 │   ├── data_profile_report.md            # Automated data profiling results
 │   ├── data_quality_notes.md             # Known issues and resolutions
@@ -383,6 +377,18 @@ nfip-insurance-data-warehouse/
 │   ├── test_row_counts.sql               # Pipeline row count validation
 │   ├── test_referential_integrity.sql    # FK orphan checks
 │   └── test_business_rules.sql           # Business rule validation
+├── Images/
+│   ├── Architecture-Design.png           # Data architecture diagram
+│   ├── etl_flow_diagram.png              # ETL pipeline flow diagram
+│   ├── star_schema_erd.png               # Gold layer star schema ERD
+│   └── charts/                           # Analytics visualisation charts
+│       ├── chart_loss_ratio_heatmap.png
+│       ├── chart_claims_development.png
+│       ├── chart_large_loss_concentration.png
+│       ├── chart_severity_by_zone.png
+│       ├── chart_portfolio_summary.png
+│       ├── chart_frequency_severity.png
+│       └── chart_premium_adequacy.png
 ├── docker-compose.yml                    # Azure SQL Edge container
 ├── requirements.txt                      # Python dependencies
 ├── LICENSE                               # MIT License
@@ -394,7 +400,7 @@ nfip-insurance-data-warehouse/
 ## Related Projects
 
 - [Predictive Claims Liability Model](https://github.com/ayusyagol11/claims-liability-predictor) — Tweedie regression pipeline estimating pure premium across 677k motor insurance policies
-- [Macroeconomic Resilience in General Insurance](https://github.com/ayusyagol11) — Stress-testing insurance KPIs against ABS/RBA economic scenarios *(repository coming soon)*
+- Macroeconomic Resilience in General Insurance — Stress-testing insurance KPIs against ABS/RBA economic scenarios *(repository not yet published)*
 
 ---
 
