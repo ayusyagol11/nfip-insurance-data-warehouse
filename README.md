@@ -400,7 +400,7 @@ nfip-insurance-data-warehouse/
 ## Related Projects
 
 - [Predictive Claims Liability Model](https://github.com/ayusyagol11/claims-liability-predictor) — Tweedie regression pipeline estimating pure premium across 677k motor insurance policies
-- Macroeconomic Resilience in General Insurance — Stress-testing insurance KPIs against ABS/RBA economic scenarios *(repository not yet published)*
+- [Macroeconomic Resilience in General Insurance] (https://github.com/ayusyagol11/macroeconomic-impact-insurance-claims) — Stress-testing insurance KPIs against ABS/RBA economic scenarios 
 
 ---
 
